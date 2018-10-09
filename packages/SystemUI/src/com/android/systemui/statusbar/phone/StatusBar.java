@@ -2291,6 +2291,12 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
                 mNotificationPanel.flingSettings(0 /* velocity */, true /* expand */);
                 mMetricsLogger.count(NotificationPanelView.COUNTER_PANEL_OPEN_QS, 1);
             }
+        } else if (KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT == key) {
+			//mMetricsLogger.action(MetricsEvent.ACTION_SYSTEM_NAVIGATION_KEY_LEFT); // ACTION_SYSTEM_NAVIGATION_KEY_LEFT not implemented
+            changeBrightness(false); // decreases brightness
+        } else if (KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT == key) {
+			//mMetricsLogger.action(MetricsEvent.ACTION_SYSTEM_NAVIGATION_KEY_RIGHT); // ACTION_SYSTEM_NAVIGATION_KEY_RIGHT not implemented
+			changeBrightness(true); // increases brightness
         }
 
     }
@@ -2489,6 +2495,57 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
         if (!mStatusBarKeyguardViewManager.isShowing()) {
             WindowManagerGlobal.getInstance().trimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
         }
+    }
+	
+	private void changeBrightness(boolean increase) // added for changing the brightness relative to current brightness
+	{
+		if (mAutomaticBrightness) {
+			float changeVal = increase ? 0.1f : -0.1f; //value to add to current brightness
+            float adj = getAutoBrightnessAdjustmentSetting() + changeVal;
+            adj = Math.max(adj, -1);
+            adj = Math.min(adj, 1);
+            final float val = adj;
+            mDisplayManager.setTemporaryAutoBrightnessAdjustment(val);
+            AsyncTask.execute(new Runnable() {
+                public void run() {
+                    Settings.System.putFloatForUser(mContext.getContentResolver(),
+                            Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, val,
+                            UserHandle.USER_CURRENT);
+                }
+            });
+        } else {
+			int range = PowerManager.BRIGHTNESS_ON - mMinBrightness;
+			int changeQuant = (int) Math.max(range * 0.1f, 1.0f); // 10 percent of range or 1
+			int changeVal = increase ? changeQuant : - changeQuant;
+			int newBrightness = getScreenBrightnessSetting() + changeVal;
+            newBrightness = Math.min(newBrightness, PowerManager.BRIGHTNESS_ON);
+            newBrightness = Math.max(newBrightness, mMinBrightness);
+            final int val = newBrightness;
+            mDisplayManager.setTemporaryBrightness(val);
+            AsyncTask.execute(new Runnable() {
+                @Override
+                public void run() {
+                    Settings.System.putIntForUser(mContext.getContentResolver(),
+                            Settings.System.SCREEN_BRIGHTNESS, val,
+                            UserHandle.USER_CURRENT);
+                }
+            });
+        }
+	}
+	
+	private float getAutoBrightnessAdjustmentSetting() { // this is how it was done in DisplayPowerController.java
+        final float adj = Settings.System.getFloatForUser(mContext.getContentResolver(),
+                Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, 0.0f, UserHandle.USER_CURRENT);
+		return Float.isNaN(adj) ? 0.0f : Math.max(Math.min(adj, -1.0f), 1.0f);
+    }
+	
+	private int getScreenBrightnessSetting() { // this is how it was done in DisplayPowerController.java
+		final int mScreenBrightnessDefault = resources.getInteger(
+                com.android.internal.R.integer.config_screenBrightnessSettingDefault);
+        final int brightness = Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.SCREEN_BRIGHTNESS, mScreenBrightnessDefault,
+                UserHandle.USER_CURRENT);
+		return Math.max(Math.min(brightness, PowerManager.BRIGHTNESS_ON),mMinBrightness);
     }
 
     private void adjustBrightness(int x) {
