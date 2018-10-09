@@ -2540,7 +2540,7 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
     }
 	
 	private int getScreenBrightnessSetting() { // this is how it was done in DisplayPowerController.java
-		final int mScreenBrightnessDefault = resources.getInteger(
+		final int mScreenBrightnessDefault = res.getInteger(
                 com.android.internal.R.integer.config_screenBrightnessSettingDefault);
         final int brightness = Settings.System.getIntForUser(mContext.getContentResolver(),
                 Settings.System.SCREEN_BRIGHTNESS, mScreenBrightnessDefault,
